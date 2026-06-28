@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+scrape_configs:
+  - job_name: 'presto'
+    scrape_interval: 10s
+    scrape_timeout: 9s
+    static_configs:
+      - targets: ['presto-coordinator:8081']
+        labels:
+          role: 'coordinator'
+      - targets: ['presto-worker-1:8081', 'presto-worker-2:8081']
+        labels:
+          role: 'worker'

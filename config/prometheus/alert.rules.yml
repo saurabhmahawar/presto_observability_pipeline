@@ -1,0 +1,100 @@
+groups:
+  - name: presto_alerts
+    rules:
+      # =========================================================================
+      # 🔴 P1 — Critical (Cluster Survival, Immediate Action Required)
+      # =========================================================================
+      
+      - alert: PrestoWorkerDown
+        expr: up{role="worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Presto Worker Down"
+          description: "A worker node (instance {{ $labels.instance }}) is offline. Active queries on that worker will fail and cluster capacity drops."
+
+      - alert: PrestoCoordinatorDown
+        expr: up{role="coordinator"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Presto Coordinator Down"
+          description: "The coordinator node (instance {{ $labels.instance }}) is offline. The coordinator is the single point of entry — if it's down, all queries fail."
+
+      - alert: PrestoHeapMemoryCritical
+        expr: jvm_memory_bytes_used{area="heap"} / jvm_memory_bytes_max{area="heap"} > 0.90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Presto Heap Memory Critical"
+          description: "JVM heap on instance {{ $labels.instance }} is over 90% full (currently {{ printf \"%.2f\" $value }}). Imminent risk of OutOfMemoryError and container crash."
+
+      # =========================================================================
+      # 🟠 P2 — High/Severe (Service Degradation, Action Required Soon)
+      # =========================================================================
+
+      - alert: PrestoInternalFailuresSpike
+        expr: rate(presto_querymanager_internalfailures_total[5m]) > 0
+        labels:
+          severity: high
+        annotations:
+          summary: "Presto Internal Failures Spike"
+          description: "Internal failures are occurring (rate: {{ printf \"%.4f\" $value }}/s). This indicates Presto bugs or infrastructure issues (not user errors)."
+
+      - alert: PrestoDiskSpillSpike
+        expr: rate(presto_spill_spilledbytes_total[5m]) > 5242880
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "Presto Disk Spill Spike"
+          description: "Heavy disk spilling detected on instance {{ $labels.instance }} (rate: {{ printf \"%.2f\" $value }} bytes/s). This severely degrades query performance."
+
+      - alert: PrestoQueueBacklog
+        expr: sum(presto_user_resourcegroup_queuedqueries{user!~"all|global"}) > 20
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Presto Queue Backlog"
+          description: "More than 20 queries are queued on the cluster (currently {{ $value }}). This indicates scheduler/coordinator congestion."
+
+      - alert: PrestoHighGCOverhead
+        expr: rate(jvm_gc_collection_seconds_sum{role="coordinator"}[2m]) > 0.2
+        labels:
+          severity: high
+        annotations:
+          summary: "Presto High GC Overhead"
+          description: "Coordinator GC pauses are consuming > 20% of CPU time (rate: {{ printf \"%.2f\" $value }}s/s). This risks heartbeat failures and node loss."
+
+      # =========================================================================
+      # 🟡 P3 — Warning (Proactive / Early Detection)
+      # =========================================================================
+
+      - alert: PrestoQueriesRejectedQueueFull
+        expr: rate(presto_querymanager_insufficientresourcesfailures_total{job="presto"}[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Presto Queries Rejected (Queue Full)"
+          description: "Queries are actively being rejected because a resource group's maximum queue capacity has been exceeded."
+
+      - alert: PrestoHighQueryFailureRate
+        expr: (rate(presto_querymanager_internalfailures_total[5m]) / rate(presto_querymanager_submittedqueries_total[5m]) > 0.05) and (rate(presto_querymanager_submittedqueries_total[5m]) > 0.05)
+        labels:
+          severity: warning
+        annotations:
+          summary: "Presto High Query Failure Rate"
+          description: "More than 5% of submitted queries are failing due to internal system/infrastructure errors (internal failure rate: {{ printf \"%.2f\" $value }})."
+
+      - alert: PrestoHighP95Latency
+        expr: presto_querymanager_executiontime_alltime_p95 > 60000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Presto High P95 Latency"
+          description: "P95 query execution time exceeds 1 minute (currently {{ printf \"%.2f\" $value }} ms). This indicates overall performance degradation."

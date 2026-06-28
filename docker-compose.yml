@@ -1,0 +1,70 @@
+services:
+  presto-coordinator:
+    image: prestodb/presto:latest
+    container_name: presto-coordinator
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      - ./config/presto-coordinator/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      - ./config/presto-coordinator/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      - ./config/presto-coordinator/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      - ./config/presto-coordinator/etc/resource-groups.properties:/opt/presto-server/etc/resource-groups.properties:ro
+      - ./config/presto-coordinator/etc/resource-groups.json:/opt/presto-server/etc/resource-groups.json:ro
+
+  presto-worker-1:
+    image: prestodb/presto:latest
+    container_name: presto-worker-1
+    depends_on:
+      - presto-coordinator
+    volumes:
+      - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      - ./config/presto-worker-1/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      - ./config/presto-worker-1/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      - ./config/presto-worker-1/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      - ./spill/worker-1:/tmp/presto/spill
+
+  presto-worker-2:
+    image: prestodb/presto:latest
+    container_name: presto-worker-2
+    depends_on:
+      - presto-coordinator
+    volumes:
+      - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      - ./config/presto-worker-2/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      - ./config/presto-worker-2/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      - ./config/presto-worker-2/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      - ./spill/worker-2:/tmp/presto/spill
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-server
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/etc/grafana/dashboards:ro
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager-server
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro

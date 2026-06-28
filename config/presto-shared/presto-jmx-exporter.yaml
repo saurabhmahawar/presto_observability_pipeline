@@ -1,0 +1,106 @@
+lowercaseOutputName: true
+includeObjectNames:
+  - "com.facebook.presto.execution.resourceGroups:*"
+  - "com.facebook.presto.execution:name=QueryManager"
+  - "com.facebook.presto.execution:name=TaskManager"
+  - "com.facebook.presto.execution.executor:name=TaskExecutor"
+  - "com.facebook.presto.memory:name=ClusterMemoryManager"
+  - "com.facebook.presto.spiller:name=SpillerStats"
+  - "com.facebook.presto.metadata:name=MetadataManagerStats"
+  - "com.facebook.presto.server:name=ExchangeExecutionMBean"
+  - "com.facebook.presto.hive.metastore:*"
+  - "com.facebook.airlift.http.client:*"
+rules:
+
+  # 1. User-level leaf resource groups (3-level: global.TEAM.USER)
+  - pattern: '(?i).*global\.([^.,<>]+)\.([^.,<>]+)[^<>]*><>(runningqueries|maxqueuedqueries|queuedqueries)'
+    name: presto_user_resourcegroup_$3
+    labels:
+      team: "$1"
+      user: "$2"
+
+  # 2. Default resource group (must be before generic team rule)
+  - pattern: '(?i).*global\.(default)[^<>]*><>(runningqueries|maxqueuedqueries|queuedqueries)'
+    name: presto_user_resourcegroup_$2
+    labels:
+      team: "default"
+      user: "default"
+
+  # 3. Team-level parent resource groups (2-level: global.TEAM)
+  - pattern: '(?i).*global\.([^.,<>]+)[^<>]*><>(runningqueries|maxqueuedqueries|queuedqueries)'
+    name: presto_user_resourcegroup_$2
+    labels:
+      team: "$1"
+      user: "all"
+
+  # 4. Global root resource group
+  - pattern: '(?i).*name=(global)[^<>]*><>(runningqueries|maxqueuedqueries|queuedqueries)'
+    name: presto_user_resourcegroup_$2
+    labels:
+      team: "global"
+      user: "global"
+
+  # 5. Standard Presto MBean metrics needed by the dashboard
+  - pattern: '(?i).*name=querymanager.*(runningqueries|queuedqueries)'
+    name: presto_querymanager_$1
+
+  - pattern: '(?i).*name=clustermemorymanager.*(clustermemorybytes)'
+    name: presto_clustermemorymanager_clustermemorybytes
+
+  # 6. Query stats counters and stats metrics
+  - pattern: '(?i).*name=querymanager.*(completedqueries|submittedqueries|startedqueries|failedqueries|abandonedqueries|canceledqueries|consumedcputimesecs|usererrorfailures|internalfailures|externalfailures|insufficientresourcesfailures)\.totalcount'
+    name: presto_querymanager_$1_total
+
+  - pattern: '(?i).*name=querymanager.*executiontime\.alltime\.count'
+    name: presto_querymanager_executiontime_total
+
+  - pattern: '(?i).*name=querymanager.*executiontime\.alltime\.(p50|p75|p90|p95|p99)'
+    name: presto_querymanager_executiontime_alltime_$1
+
+
+  - pattern: '(?i).*name=querymanager.*queuedtime\.alltime\.count'
+    name: presto_querymanager_queuedtime_total
+
+  - pattern: '(?i).*name=taskexecutor.*tasks'
+    name: presto_taskexecutor_tasks
+
+  - pattern: '(?i).*name=spillerstats.*totalspilledbytes'
+    name: presto_spill_spilledbytes_total
+
+  # 7. Storage & Connector Performance
+  - pattern: '(?i).*name=querymanager.*consumedinputbytes\.totalcount'
+    name: presto_querymanager_consumedinputbytes_total
+
+  - pattern: '(?i).*name=taskmanager.*inputdatasize\.totalcount'
+    name: presto_taskmanager_inputdatasize_total
+
+  # 8. Shuffle & Network Exchange
+  - pattern: '(?i).*name=exchangeexecutionmbean.*executor\.(activecount|queuedtaskcount)'
+    name: presto_exchange_executor_$1
+
+  - pattern: '(?i)com.facebook.airlift.http.client<.*name=([^,>]+).*><>(responsetime|requesttime)\.(alltime|fiveminutes)\.(p50|p75|p90|p95|p99)'
+    name: presto_airlift_http_client_$2_$3_$4
+    labels:
+      client: "$1"
+
+  # 9. Split Scheduling & Queue Skew
+  - pattern: '(?i).*name=taskexecutor.*(running|waiting|blocked)splits'
+    name: presto_executor_taskexecutor_splits
+    labels:
+      state: "$1"
+
+  # 10. Metadata Call Latencies
+  - pattern: '(?i).*name=metadatamanagerstats.*(gettablemetadatatime|gettablestatisticstime|listtablestime)\.(alltime|fiveminutes)\.(p50|p75|p90|p95|p99)'
+    name: presto_metadata_manager_time
+    labels:
+      operation: "$1"
+      window: "$2"
+      percentile: "$3"
+
+  - pattern: '(?i)com.facebook.presto.hive.metastore.*<.*>stats\.(gettable|getdatabase|getpartitions|getpartitionnames|getpartitionsbynames|batchgetpartitions)\.time\.(alltime|fiveminutes)\.(p50|p75|p90|p95|p99)'
+    name: presto_metastore_api_time
+    labels:
+      operation: "$1"
+      window: "$2"
+      percentile: "$3"
+

@@ -1,0 +1,5 @@
+.DS_Store
+spill/worker-1/*
+spill/worker-2/*
+!spill/worker-1/.gitkeep
+!spill/worker-2/.gitkeep
