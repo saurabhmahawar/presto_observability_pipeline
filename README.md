@@ -2,7 +2,7 @@
 
 This repository hosts a fully self-contained, Docker-based monitoring and alerting pipeline for a Presto cluster (consisting of 1 Coordinator and 2 Worker nodes). 
 
-This sandbox environment demonstrates how production-grade observability is configured and integrated. It outlines the configuration and operation of a modern observability stack designed for high throughput distributed database environments.
+This sandbox environment demonstrates how production-grade observability is configured and integrated. It outlines the configuration and operation of a modern observability stack designed for high throughput distributed SQL query engine environments.
 
 ---
 
