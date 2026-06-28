@@ -13,7 +13,7 @@ To understand how telemetry is collected and managed in this setup, it is import
 ### Prometheus
 Prometheus is an open-source systems monitoring and alerting toolkit. It collects and stores metrics as time-series data, meaning metrics information is stored with the timestamp at which it was recorded, alongside optional key-value pairs called labels.
 Key features of Prometheus in this pipeline include:
-* **Pull-Based Metrics Scraping**: Instead of the Presto servers pushing metrics over the network, Prometheus periodically queries (scrapes) an HTTP metrics endpoint on each target. In this setup, it pulls metrics from port `8081` on the coordinator and workers every 10 seconds.
+* **Pull-Based Metrics Scraping**: Instead of the Presto servers pushing metrics over the network, Prometheus periodically queries (scrapes) an HTTP metrics endpoint on each target. In this setup, it pulls metrics from port `8081` on the coordinator (exposed to the host on `8081`) and workers (accessible only inside the internal Docker bridge network) every 10 seconds (via a job-level override; the global default is 5s).
 * **PromQL (Prometheus Query Language)**: A multi-dimensional query language that allows querying metrics in real-time. Grafana uses PromQL queries to display resource usage, latencies, and queues on the dashboards.
 * **Rule Evaluation and Alerting**: Prometheus regularly evaluates alerting rules (queries) defined in `alert.rules.yml`. If a query condition is met (e.g., a node goes offline or JVM heap memory exceeds limits), Prometheus triggers an alert.
 
@@ -27,7 +27,7 @@ Key features of Alertmanager in this pipeline include:
 Presto is a Java application that exposes its internal runtime statistics (e.g., query queue sizes, JVM memory usage, task execution times) via JMX (Java Management Extensions) MBeans. Since Prometheus cannot read JMX directly, we run the JMX Exporter as a Java agent inside the Presto JVM. The agent:
 * Whitelists specific Presto and JVM MBeans.
 * Translates MBean attributes into Prometheus-compatible counters, gauges, and histograms.
-* Exposes them on HTTP port `8081` as raw text for Prometheus to scrape.
+* Exposes them on HTTP port `8081` as raw text (which is mapped to the host on `8081` for the coordinator, but remains internal to the Docker network for workers).
 
 ### Grafana
 Grafana is the visualization layer. It connects to Prometheus as a data source, runs PromQL queries on a schedule, and visualizes the results on a rich dashboard, providing real-time visibility into query workloads, GC overhead, memory usage, and task scheduling.
@@ -100,7 +100,7 @@ Here is a file-by-file breakdown of the repository, explaining what each file do
 * **`config/grafana/dashboards/presto-dashboard.json`**: The complete definition (grids, queries, labels, variables) for the 24-panel dashboard.
 
 ### 5. Binary and Disk Spilling Folders
-* **`bin/jmx_prometheus_javaagent.jar`**: The JMX Prometheus Java agent binary. This JAR is injected into the JVM of the Presto coordinator and worker nodes at startup via the `-javaagent` flag. It reads JMX MBeans and exposes them as a Prometheus text metrics endpoint on HTTP port `8081`.
+* **`bin/jmx_prometheus_javaagent.jar`**: The JMX Prometheus Java agent binary. This JAR is injected into the JVM of the Presto coordinator and worker nodes at startup via the `-javaagent` flag. It reads JMX MBeans and exposes them as a Prometheus text metrics endpoint on HTTP port `8081` (exposed to the host on `8081` for the coordinator, and accessible over the internal Docker bridge network for worker nodes).
 * **`spill/`**: Host-mounted storage directories (`spill/worker-1` and `spill/worker-2`) mapped as Docker volumes to `/tmp/presto/spill` inside the worker containers. When query processing hits node memory limits during joins or aggregations, Presto spills intermediate data here to prevent JVM OutOfMemoryErrors, allowing you to test and visualize disk spilling telemetry.
 
 ---
