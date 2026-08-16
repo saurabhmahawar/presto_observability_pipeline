@@ -151,15 +151,51 @@ Here is a file-by-file breakdown of the repository, explaining what each file do
 ### D. Slack Alert Integration via Alertmanager
 * **File**: `config/alertmanager/alertmanager.yml`
 * **Why it matters**: This file configures how Alertmanager processes incoming alerts from Prometheus, formats them, and routes them to Slack.
-* **How to Enable & Configure Slack Alerts**:
-  1. **Slack Webhook URL (`api_url`)**: Alertmanager routes alerts to Slack using an **Incoming Webhook URL** generated in your Slack workspace. This URL is set in the `api_url` parameter. If you need to redirect alerts to a new Slack workspace, replace this URL with your new workspace webhook.
-  2. **Target Channel (`channel`)**: The `channel` property defines which channel in your Slack workspace receives the alerts (configured to `#incident-alert` by default).
-  3. **Color-Coded Severities**: The payload contains a dynamic color template. Alerts are color-coded in the Slack UI based on their status and severity:
-     * **Red (`#d63031`)**: Firing critical alerts (e.g., node offline, heap critical).
-     * **Orange (`#e17055`)**: Firing high severity alerts.
-     * **Yellow (`#fdcb6e`)**: Firing warning severity alerts.
-     * **Green (`#2ecc71`)**: Resolved alerts (sent automatically when the metric goes back to normal).
-  4. **Active Resolves**: `send_resolved: true` is configured so that when a failing condition resolves, Alertmanager automatically sends a follow-up green-colored notification to the same channel to let engineers know the issue has cleared.
+
+#### Setting Up Your Slack Webhook (Step-by-Step)
+
+1. **Create a Slack App and generate a webhook URL**:
+   - Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** → **From scratch**.
+   - Give the app a name (e.g. `Presto Alertmanager`) and select your Slack workspace, then click **Create App**.
+   - In the left sidebar, click **Incoming Webhooks**, then toggle **Activate Incoming Webhooks** to **On**.
+   - Click **Add New Webhook to Workspace**, choose the target channel (e.g. `#incident-alert`), and click **Allow**.
+   - Copy the generated webhook URL — it looks like:
+     ```
+     https://hooks.slack.com/services/YOUR/COPIED/WEBHOOK_URL
+     ```
+
+2. **Paste the URL into `alertmanager.yml`**:
+   Open [`config/alertmanager/alertmanager.yml`](config/alertmanager/alertmanager.yml) and replace the `api_url` placeholder on line 11:
+   ```yaml
+   # Before (placeholder)
+   api_url: 'https://hooks.slack.com/services/YOUR_WEBHOOK_HERE'
+
+   # After (your real webhook)
+   api_url: 'https://hooks.slack.com/services/YOUR/COPIED/WEBHOOK_URL'
+   ```
+
+3. **Set the target channel** (`channel`): The `channel` property defines which Slack channel receives the alerts. It is set to `#incident-alert` by default — update this if your channel name differs.
+
+4. **Restart Alertmanager** to apply the change:
+   ```bash
+   docker-compose restart alertmanager
+   ```
+
+5. **Verify the integration**: Trigger a test by stopping a worker container temporarily:
+   ```bash
+   docker stop presto-worker-1
+   ```
+   After ~1 minute (the `for: 1m` window in the alert rule), you should receive a firing alert in your Slack channel. Restart the worker to receive the green resolved notification:
+   ```bash
+   docker start presto-worker-1
+   ```
+
+* **Color-Coded Severities**: The payload contains a dynamic color template. Alerts are color-coded in the Slack UI based on their status and severity:
+  * **Red (`#d63031`)**: Firing critical alerts (e.g., node offline, heap critical).
+  * **Orange (`#e17055`)**: Firing high severity alerts.
+  * **Yellow (`#fdcb6e`)**: Firing warning severity alerts.
+  * **Green (`#2ecc71`)**: Resolved alerts (sent automatically when the metric goes back to normal).
+* **Active Resolves**: `send_resolved: true` is configured so that when a failing condition resolves, Alertmanager automatically sends a follow-up green-colored notification to the same channel to let engineers know the issue has cleared.
 
 ### E. Alert Format Example
 Below is a snapshot of how Alertmanager formats and routes firing and resolved alerts to the `#incident-alert` Slack channel:
