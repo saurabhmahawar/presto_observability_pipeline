@@ -55,7 +55,7 @@ groups:
 
       - alert: PrestoQueueBacklog
         expr: sum(presto_user_resourcegroup_queuedqueries{user!~"all|global"}) > 20
-        for: 5m
+        for: 5m  # 30s  # change as needed and apply with 'docker compose restart prometheus'
         labels:
           severity: high
         annotations:
