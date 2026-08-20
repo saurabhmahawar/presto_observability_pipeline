@@ -6,12 +6,19 @@ services:
       - "8080:8080"
       - "8081:8081"
     volumes:
+      # Java agent JAR that attaches to the JVM at startup and exposes JMX metrics over HTTP on port 8081
       - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      # Defines the regex rules to translate Presto MBean names and attributes into Prometheus-readable metrics
       - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      # JVM tuning flags for the coordinator: heap size, GC settings, and the javaagent startup line that activates JMX export
       - ./config/presto-coordinator/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      # Core Presto coordinator settings: node ID, HTTP port, discovery URI, and per-node memory limits
       - ./config/presto-coordinator/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      # Registers Prometheus as a Presto connector catalog so Presto can query Prometheus metrics using SQL
       - ./config/presto-coordinator/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      # Points Presto at the file-based resource group manager and names the JSON config file to load
       - ./config/presto-coordinator/etc/resource-groups.properties:/opt/presto-server/etc/resource-groups.properties:ro
+      # Defines the resource group hierarchy, per-user/team memory and concurrency limits, and query queue caps
       - ./config/presto-coordinator/etc/resource-groups.json:/opt/presto-server/etc/resource-groups.json:ro
 
   presto-worker-1:
@@ -20,11 +27,17 @@ services:
     depends_on:
       - presto-coordinator
     volumes:
+      # Java agent JAR that attaches to the JVM at startup and exposes JMX metrics over HTTP on port 8081
       - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      # Defines the regex rules to translate Presto MBean names and attributes into Prometheus-readable metrics
       - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      # JVM tuning flags for worker-1: heap size, GC settings, and the javaagent startup line that activates JMX export
       - ./config/presto-worker-1/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      # Core Presto worker settings: node ID, coordinator discovery URI, and per-node memory limits
       - ./config/presto-worker-1/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      # Registers the Prometheus connector catalog on worker-1 so it can participate in Prometheus SQL queries
       - ./config/presto-worker-1/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      # Host directory for worker-1's spill-to-disk storage, used when a query exceeds its in-memory budget
       - ./spill/worker-1:/tmp/presto/spill
 
   presto-worker-2:
@@ -33,11 +46,17 @@ services:
     depends_on:
       - presto-coordinator
     volumes:
+      # Java agent JAR that attaches to the JVM at startup and exposes JMX metrics over HTTP on port 8081
       - ./bin/jmx_prometheus_javaagent.jar:/opt/jmx_prometheus_javaagent.jar:ro
+      # Defines the regex rules to translate Presto MBean names and attributes into Prometheus-readable metrics
       - ./config/presto-shared/presto-jmx-exporter.yaml:/opt/presto-jmx-exporter.yaml:ro
+      # JVM tuning flags for worker-2: heap size, GC settings, and the javaagent startup line that activates JMX export
       - ./config/presto-worker-2/etc/jvm.config:/opt/presto-server/etc/jvm.config:ro
+      # Core Presto worker settings: node ID, coordinator discovery URI, and per-node memory limits
       - ./config/presto-worker-2/etc/config.properties:/opt/presto-server/etc/config.properties:ro
+      # Registers the Prometheus connector catalog on worker-2 so it can participate in Prometheus SQL queries
       - ./config/presto-worker-2/etc/catalog/prometheus.properties:/opt/presto-server/etc/catalog/prometheus.properties:ro
+      # Host directory for worker-2's spill-to-disk storage, used when a query exceeds its in-memory budget
       - ./spill/worker-2:/tmp/presto/spill
 
   prometheus:
@@ -46,7 +65,9 @@ services:
     ports:
       - "9090:9090"
     volumes:
+      # Main Prometheus config: global scrape interval, alertmanager target, and the scrape jobs for coordinator and workers
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Alert rule definitions (P1–P3) for node availability, heap memory, GC overhead, query failures, queue backlog, and latency
       - ./config/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
 
   grafana:
@@ -58,7 +79,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
+      # Auto-provisioning directory: datasources/ registers Prometheus as the default data source; dashboards/ tells Grafana where to load dashboard JSON files from
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Contains the pre-built Presto dashboard JSON that Grafana loads on startup
       - ./config/grafana/dashboards:/etc/grafana/dashboards:ro
 
   alertmanager:
@@ -67,4 +90,5 @@ services:
     ports:
       - "9093:9093"
     volumes:
+      # Alertmanager routing config: groups alerts by name and routes them to the Slack receiver with severity-based color coding
       - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro

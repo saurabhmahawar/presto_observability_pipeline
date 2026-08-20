@@ -137,7 +137,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "increase(presto_querymanager_failedqueries_total{job=\"presto\"}[5m])",
+          "expr": "sum(increase(presto_querymanager_failedqueries_total{job=\"presto\", role=\"coordinator\"}[5m]))",
           "legendFormat": "Failed"
         }
       ],
@@ -898,12 +898,9 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "Prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
           "editorMode": "code",
-          "expr": "sum by (team) (presto_user_resourcegroup_runningqueries{job=\"presto\", user!=\"all\", team!=\"global\"})",
+          "expr": "sum by (team) (last_over_time(presto_user_resourcegroup_runningqueries{job=\"presto\", role=\"coordinator\", user!~\"^(all|global)$\"}[1m]))",
           "format": "time_series",
           "instant": true,
           "legendFormat": "{{team}} (Running)",
@@ -911,12 +908,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "Prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
           "editorMode": "code",
-          "expr": "sum by (team) (presto_user_resourcegroup_queuedqueries{job=\"presto\", user!=\"all\", team!=\"global\"})",
+          "expr": "sum by (team) (last_over_time(presto_user_resourcegroup_queuedqueries{job=\"presto\", role=\"coordinator\", user!~\"^(all|global)$\"}[1m]))",
           "format": "time_series",
           "instant": true,
           "legendFormat": "{{team}} (Queued)",
